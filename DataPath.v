@@ -53,4 +53,37 @@ module Comparator32Bit(input [31:0]A, B, output reg E);
     end
 endmodule
 
+module ShiftLeft2bit(input [31:0]in, output reg [31:0]out);
+    always @(in) begin
+        out = 32'b0;
+        out = {in[29:0], 2'b00};
+    end
+endmodule
+
+module  SignExtender(input [15:0]in, output reg [31:0] out);
+    always @(in) begin
+        out = 32'b0;
+        out = 32'(signed'(in));
+    end
+endmodule
+
+module RegFile (input [4:0]ReadReg1, ReadReg2, input [4:0]WriteReg, input [31:0]Writedata, input clk, rst, regWriteSignal, output reg [31:0]ReadData1, ReadData2);
+    reg [31:0] REGFILE [0:31];
+
+    always @(ReadReg1, ReadReg2) begin
+        {ReadData1, ReadData2} = 64'b0;
+        ReadData1 = REGFILE[ReadReg1];
+        ReadData2 = REGFILE[ReadReg2];
+    end
+    integer i;
+    always @(posedge clk, posedge rst)begin
+        if (rst) begin
+            for(i = 0; i < 32; i = i + 1) begin
+                REGFILE[i] = 32'b0;
+            end
+        end
+        if (regWriteSignal)
+            REGFILE[WriteReg] = Writedata;
+    end
+endmodule
 
