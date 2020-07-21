@@ -87,7 +87,7 @@ module RegFile (input [4:0]ReadReg1, ReadReg2, input [4:0]WriteReg, input [31:0]
 endmodule
 
 
-module MUX32BitInput3(input [31:0] ZEROsel, ONEsel, TWOsel, input selector, output reg [31:0] Out);
+module MUX32BitInput3(input [31:0] ZEROsel, ONEsel, TWOsel, input[1:0] selector, output reg [31:0] Out);
     always @(ZEROsel, ONEsel, TWOsel, selector) begin
         Out = 32'b00000000000000000000000000000000;
         if(selector == 2'b00)begin
@@ -156,18 +156,37 @@ module DataMemory (input [31:0]address, writedata, input MemRead, MemWrite, clk,
     end
 endmodule
 
+module MUX9Bit(input [8:0]ZEROsel, ONEsel, input selector, output reg [8:0]out);
+    always @(ZEROsel, ONEsel, selector)begin
+        if(selector == 1'b0)begin
+            out = ZEROsel;
+        end
+        else begin
+            out = ONEsel;
+        end
+    end
+endmodule 
+
+module ZEROExtender(input [25:0]in, output reg [27:0]out);
+    always @(in) begin
+        out = 28'b0000000000000000000000000000; // output rule for combinationals
+        out = {in, 2'b00};
+    end
+endmodule
 
 // Defining Middle Registers
 
-module IF_ID(input [31:0]AdderIn, InstructionIn, input clk, rst, ldin, output reg [31:0]AdderOut, InstructionOut);
+module IF_ID(input [31:0]AdderIn, InstructionIn, PCIn, input clk, rst, ldin, output reg [31:0]AdderOut, InstructionOut, PCout);
     always @(posedge clk, posedge rst) begin
         if (rst) begin
             AdderOut <= 32'b00000000000000000000000000000000;
             InstructionOut <= 32'b00000000000000000000000000000000;
+            PCout <= 32'b00000000000000000000000000000000;
         end
         else if (ldin) begin
             AdderOut <= AdderIn;
             InstructionOut <= InstructionIn;
+            PCout <= PCIn;
         end
     end
 endmodule 
@@ -239,43 +258,36 @@ module MEM_WB(input [31:0]ReadDataIn, ALUresultIn, input [4:0]RegDstIn, input Co
     end
 endmodule 
 
-module MUX9Bit(input [8:0]ZEROsel, ONEsel, input selector, output reg [8:0]out);
-    always @(ZEROsel, ONEsel, selector)begin
-        if(selector == 1'b0)begin
-            out = ZEROsel;
-        end
-        else begin
-            out = ONEsel;
-        end
-    end
-endmodule 
 
 module MIPSDataPath(input rst, clk, PCWrite, IF_IDWrite, HazardSel, input[8:0]ControlOutput, input [1:0]ForwardingSel, output zeroflag, output [31:0]instruction, output [4:0]RTReg, RSReg, RDRegStage4, RDRegStage5, output WriteRegSignalStage4, WriteRegSignalStage5);
 
     wire [31:0]MUX1Wire, Container4, PCOutputWire, InstructionWireIn, PCAdderOut, JumpAdderOut, PCAdderOutToJumpAdder, InstructionWireOut,
     SHL2Wire, SEXTOutWire, MUX7Wire, ReadData1WireIn, ReadData2WireIn, ReadData1WireOut, ReadData2WireOut, SEXTOutWire2,
-    ALUOutWire, ALUOut, WriteDataWire, ReadDataWire, ReadDataOutWire, ALUOutWire2;
-    wire PCSrc, Cout1, Cout2, IF_IdWriteWire, EorEbarIn, EorEbarOut, RegWriteSignal, ALUSrc, regdst, ZeroFlag, MemRead, MemWrite, MemtoReg;
+    ALUOutWire, ALUOut, WriteDataWire, ReadDataWire, ReadDataOutWire, ALUOutWire2, PCif_idRegOut;
+    wire Cout1, Cout2, IF_IdWriteWire, EorEbarIn, EorEbarOut, RegWriteSignal, ALUSrc, regdst, ZeroFlag, MemRead, MemWrite, MemtoReg;
     wire [4:0]MUX6WireOut2, RtWire, RdWire, RsWire, EXSignalWire, MUX6Wire;
     wire [8:0]Container0, MUX2Wire;
     
-    wire [1:0] WBSignalWire, WBSignalWire2, WBSignalWire3, MemSignalWire, MemSignalWire2, ForwardingWire;
+    wire [1:0] WBSignalWire, WBSignalWire2, WBSignalWire3, MemSignalWire, MemSignalWire2, ForwardingWire, PCSrc;
     wire [2:0]aluop;
     wire [5:0] MUX6WireOut;
-    
+    wire [27:0]AddressZeroExtended;
     
 
     assign Container0 = 8'b00000000;
     assign Container4 = 32'b00000000000000000000000000000100; // 32bit 4 value
     // Stage1
-    MUX32Bit MUX1(PCAdderOut, JumpAdderOut, PCSrc, MUX1Wire);
+    // Stage1
+    MUX32BitInput3 MUX1(PCAdderOut, JumpAdderOut, AddressZeroExtended, PCSrc, MUX1Wire);
     Register32BitWithLoad PC(MUX1Wire, rst, clk, PCWrite, PCOutputWire);
     InstructionMemory InstMem(rst, PCOutputWire, InstructionWireIn);
     Adder32bit Adder1(PCOutputWire, Container4, PCAdderOut, Cout1);
 
-    IF_ID IFIDreg(PCAdderOut, InstructionWireIn, clk, rst, IF_IdWriteWire, PCAdderOutToJumpAdder, InstructionWireOut);
+    IF_ID IFIDreg(PCAdderOut, InstructionWireIn, PCOutputWire, clk, rst, IF_IdWriteWire, PCAdderOutToJumpAdder, InstructionWireOut, PCif_idRegOut);
 
     // Stage2
+    // Stage2
+    ZEROExtender Zextend(InstructionWireOut[25:0], AddressZeroExtended);
     Adder32bit Adder2(PCAdderOutToJumpAdder, SHL2Wire, JumpAdderOut, Cout2);
     ShiftLeft2bit SHL2(SEXTOutWire, SHL2Wire);
     RegFile MainRegFile(InstructionWireOut[25:21], InstructionWireOut[20:16], MUX6WireOut2, MUX7Wire, clk, rst, RegWriteSignal, ReadData1WireIn, ReadData2WireIn);
@@ -285,6 +297,7 @@ module MIPSDataPath(input rst, clk, PCWrite, IF_IDWrite, HazardSel, input[8:0]Co
     
     ID_EX IDEXreg(ReadData1WireIn, ReadData2WireIn, EorEbarIn, SEXTOutWire, InstructionWireOut[20:16], InstructionWireOut[15:11], InstructionWireOut[25:21], MUX2Wire[1:0], MUX2Wire[8:7], MUX2Wire[6:2], rst, clk, ReadData1WireOut, ReadData2WireOut, EorEbarOut, SEXTOutWire2, RtWire, RdWire, RsWire, WBSignalWire, MemSignalWire, EXSignalWire);
 
+    // Stage3
     // Stage3
     MUX32BitInput3 MUX3(ReadData1WireOut, ALUOutWire, MUX7Wire, ForwardingWire, MUX3wire);
     MUX32BitInput3 MUX4(ReadData2WireOut, ALUOutWire, MUX7Wire, ForwardingWire, MUX4wire);
@@ -298,18 +311,21 @@ module MIPSDataPath(input rst, clk, PCWrite, IF_IDWrite, HazardSel, input[8:0]Co
     EX_MEM EXMEMreg(ALUOut, ZeroFlag, MUX4wire, MUX6Wire, WBSignalWire, MemSignalWire, clk, rst, ALUOutWire, zeroflag, WriteDataWire, MUX6WireOut, WBSignalWire2, MemSignalWire2);
 
     // Stage4
-    
+    // Stage4
     DataMemory MainDataMem(ALUOutWire, WriteDataWire, MemRead, MemWrite, clk, rst, ReadDataWire);
     assign MemRead = MemSignalWire2[1];
     assign memWrite = MemSignalWire2[0];
     
     MEM_WB MEMWBreg(ReadDataWire, ALUOutWire, MUX6WireOut, WBSignalWire2, clk, rst, WBSignalWire3, ReadDataOutWire, ALUOutWire2, MUX6WireOut2);
 
+
+    // Stage5
     // Stage5
     MUX32Bit MUX7(ALUOutWire2, ReadDataOutWire, MemtoReg, MUX7Wire);
     assign MemtoReg = WBSignalWire3[1];
     assign RegWriteSignal = WBSignalWire3[0];
 
+    // output assignment
     // output assignment
     assign instruction = InstructionWireOut;
     assign RTReg = RtWire;
