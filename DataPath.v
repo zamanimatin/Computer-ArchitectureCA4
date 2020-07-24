@@ -269,6 +269,8 @@ endmodule
 
 module MIPSDataPath(input rst, clk, PCWrite, IF_IDWrite, HazardSel, input[8:0]ControlOutput, input [1:0]ForwardingSel, output zeroflag, output [31:0]instruction, output [4:0]RTReg, RSReg, RDRegStage4, RDRegStage5, output WriteRegSignalStage4, WriteRegSignalStage5);
 
+
+    // revised DP
     wire [31:0]MUX1Wire, Container4, PCOutputWire, InstructionWireIn, PCAdderOut, JumpAdderOut, PCAdderOutToJumpAdder, InstructionWireOut,
     SHL2Wire, SEXTOutWire, MUX7Wire, ReadData1WireIn, ReadData2WireIn, ReadData1WireOut, ReadData2WireOut, SEXTOutWire2,
     ALUOutWire, ALUOut, WriteDataWire, ReadDataWire, ReadDataOutWire, ALUOutWire2, PCif_idRegOut;
