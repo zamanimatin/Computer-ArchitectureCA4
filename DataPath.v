@@ -176,7 +176,7 @@ endmodule
 
 // Defining Middle Registers
 
-module IF_ID(input [31:0]AdderIn, InstructionIn, PCIn, input clk, rst, ldin, output reg [31:0]AdderOut, InstructionOut, PCout);
+module IF_ID(input [31:0]AdderIn, InstructionIn, PCIn, input clk, rst, ldin, aclr, output reg [31:0]AdderOut, InstructionOut, PCout);
     always @(posedge clk, posedge rst) begin
         if (rst) begin
             AdderOut <= 32'b00000000000000000000000000000000;
@@ -188,6 +188,14 @@ module IF_ID(input [31:0]AdderIn, InstructionIn, PCIn, input clk, rst, ldin, out
             InstructionOut <= InstructionIn;
             PCout <= PCIn;
         end
+    end
+    always @(posedge aclr) begin
+        if (aclr)begin
+            AdderOut <= 32'b00000000000000000000000000000000;
+            InstructionOut <= 32'b00000000000000000000000000000000;
+            PCout <= 32'b00000000000000000000000000000000;
+        end
+
     end
 endmodule 
 
@@ -264,7 +272,7 @@ module MIPSDataPath(input rst, clk, PCWrite, IF_IDWrite, HazardSel, input[8:0]Co
     wire [31:0]MUX1Wire, Container4, PCOutputWire, InstructionWireIn, PCAdderOut, JumpAdderOut, PCAdderOutToJumpAdder, InstructionWireOut,
     SHL2Wire, SEXTOutWire, MUX7Wire, ReadData1WireIn, ReadData2WireIn, ReadData1WireOut, ReadData2WireOut, SEXTOutWire2,
     ALUOutWire, ALUOut, WriteDataWire, ReadDataWire, ReadDataOutWire, ALUOutWire2, PCif_idRegOut;
-    wire Cout1, Cout2, IF_IdWriteWire, EorEbarIn, EorEbarOut, RegWriteSignal, ALUSrc, regdst, ZeroFlag, MemRead, MemWrite, MemtoReg;
+    wire Cout1, Cout2, IF_IdWriteWire, EorEbarIn, EorEbarOut, RegWriteSignal, ALUSrc, regdst, ZeroFlag, MemRead, MemWrite, MemtoReg, aclr;
     wire [4:0]MUX6WireOut2, RtWire, RdWire, RsWire, EXSignalWire, MUX6Wire;
     wire [8:0]Container0, MUX2Wire;
     
@@ -283,7 +291,7 @@ module MIPSDataPath(input rst, clk, PCWrite, IF_IDWrite, HazardSel, input[8:0]Co
     InstructionMemory InstMem(rst, PCOutputWire, InstructionWireIn);
     Adder32bit Adder1(PCOutputWire, Container4, PCAdderOut, Cout1);
 
-    IF_ID IFIDreg(PCAdderOut, InstructionWireIn, PCOutputWire, clk, rst, IF_IdWriteWire, PCAdderOutToJumpAdder, InstructionWireOut, PCif_idRegOut);
+    IF_ID IFIDreg(PCAdderOut, InstructionWireIn, PCOutputWire, clk, rst, IF_IdWriteWire, aclr, PCAdderOutToJumpAdder, InstructionWireOut, PCif_idRegOut);
 
     // Stage2
     // Stage2
@@ -311,7 +319,7 @@ module MIPSDataPath(input rst, clk, PCWrite, IF_IDWrite, HazardSel, input[8:0]Co
     EX_MEM EXMEMreg(ALUOut, ZeroFlag, MUX4wire, MUX6Wire, WBSignalWire, MemSignalWire, clk, rst, ALUOutWire, zeroflag, WriteDataWire, MUX6WireOut, WBSignalWire2, MemSignalWire2);
 
     // Stage4
-    // Stage4
+    // Stage4   
     DataMemory MainDataMem(ALUOutWire, WriteDataWire, MemRead, MemWrite, clk, rst, ReadDataWire);
     assign MemRead = MemSignalWire2[1];
     assign memWrite = MemSignalWire2[0];
