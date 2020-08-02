@@ -43,7 +43,7 @@ module Control (input [31:0]instruction, input EorEbar, output [8:0] ControlOutp
                 ALUSrc = 1'b1;
                 RegDst = 1'b1;
                 RegWrite = 1'b1;
-                ALUoperation = 3'b000;
+                ALUop = 3'b000;
             end
             6'b100011 : begin //.. case lw
                 RegWrite = 1'b1;
@@ -71,7 +71,7 @@ module Control (input [31:0]instruction, input EorEbar, output [8:0] ControlOutp
     end
 endmodule
 
-module ForwardingUnit (input [4:0]RsWire, RtWire, RDRegstage4, RDRegstage5, input RegWriteSignalstage4, RegWriteSignalstage5 output reg[1:0] ForwardingWire3, ForwardingWire4);
+module ForwardingUnit (input [4:0]RsWire, RtWire, RDRegstage4, RDRegstage5, input RegWriteSignalstage4, RegWriteSignalstage5, output reg[1:0] ForwardingWire3, ForwardingWire4);
     always @(RsWire, RtWire, RDRegstage4, RDRegstage5, RegWriteSignalstage4, RegWriteSignalstage5)begin
         {ForwardingWire3, ForwardingWire4} = 4'b0;
         if(RsWire == RDRegstage4 && RegWriteSignalstage4 == 1'b1)

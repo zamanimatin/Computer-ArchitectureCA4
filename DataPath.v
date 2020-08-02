@@ -267,18 +267,18 @@ module MEM_WB(input [31:0]ReadDataIn, ALUresultIn, input [4:0]RegDstIn, input Co
 endmodule 
 
 
-module MIPSDataPath(input rst, clk, PCWrite, IF_IDWrite, HazardSel, input[8:0]ControlOutput, input [1:0]ForwardingSel, output zeroflag, output [31:0]instruction, output [4:0]RTReg, RSReg, RDRegStage4, RDRegStage5, output WriteRegSignalStage4, WriteRegSignalStage5);
+module MIPSDataPath(input rst, clk, PCWrite, IF_IdWriteWire, HazardSel, aclr, input[8:0]ControlOutput, input [1:0] PCSrc, ForwardingWire3, ForwardingWire4, output zeroflag, output [31:0]instruction, output [4:0]RTReg, RSReg, RDReg, RDRegStage4, RDRegStage5, output WriteRegSignalStage4, WriteRegSignalStage5, MemReadNextStage, EorEbar);
 
 
     // revised DP
     wire [31:0]MUX1Wire, Container4, PCOutputWire, InstructionWireIn, PCAdderOut, JumpAdderOut, PCAdderOutToJumpAdder, InstructionWireOut,
     SHL2Wire, SEXTOutWire, MUX7Wire, ReadData1WireIn, ReadData2WireIn, ReadData1WireOut, ReadData2WireOut, SEXTOutWire2,
     ALUOutWire, ALUOut, WriteDataWire, ReadDataWire, ReadDataOutWire, ALUOutWire2, PCif_idRegOut;
-    wire Cout1, Cout2, IF_IdWriteWire, EorEbarIn, EorEbarOut, RegWriteSignal, ALUSrc, regdst, ZeroFlag, MemRead, MemWrite, MemtoReg, aclr;
+    wire Cout1, Cout2, EorEbarIn, EorEbarOut, RegWriteSignal, ALUSrc, regdst, ZeroFlag, MemRead, MemWrite, MemtoReg;
     wire [4:0]MUX6WireOut2, RtWire, RdWire, RsWire, EXSignalWire, MUX6Wire;
     wire [8:0]Container0, MUX2Wire;
     
-    wire [1:0] WBSignalWire, WBSignalWire2, WBSignalWire3, MemSignalWire, MemSignalWire2, ForwardingWire, PCSrc;
+    wire [1:0] WBSignalWire, WBSignalWire2, WBSignalWire3, MemSignalWire, MemSignalWire2;
     wire [2:0]aluop;
     wire [5:0] MUX6WireOut;
     wire [27:0]AddressZeroExtended;
@@ -307,10 +307,12 @@ module MIPSDataPath(input rst, clk, PCWrite, IF_IDWrite, HazardSel, input[8:0]Co
     
     ID_EX IDEXreg(ReadData1WireIn, ReadData2WireIn, EorEbarIn, SEXTOutWire, InstructionWireOut[20:16], InstructionWireOut[15:11], InstructionWireOut[25:21], MUX2Wire[1:0], MUX2Wire[8:7], MUX2Wire[6:2], rst, clk, ReadData1WireOut, ReadData2WireOut, EorEbarOut, SEXTOutWire2, RtWire, RdWire, RsWire, WBSignalWire, MemSignalWire, EXSignalWire);
 
+    assign EorEbar = EorEbarIn;
+
     // Stage3
     // Stage3
-    MUX32BitInput3 MUX3(ReadData1WireOut, ALUOutWire, MUX7Wire, ForwardingWire, MUX3wire);
-    MUX32BitInput3 MUX4(ReadData2WireOut, ALUOutWire, MUX7Wire, ForwardingWire, MUX4wire);
+    MUX32BitInput3 MUX3(ReadData1WireOut, ALUOutWire, MUX7Wire, ForwardingWire3, MUX3wire);
+    MUX32BitInput3 MUX4(ReadData2WireOut, ALUOutWire, MUX7Wire, ForwardingWire4, MUX4wire);
     MUX32Bit MUX5(MUX4wire, SEXTOutWire2, ALUSrc, MUX5Wire);
     MUX5Bit MUX6(RdWire, RtWire, regdst, MUX6Wire);
     ALU32Bit MainALU(MUX3wire, MUX5Wire, aluop, ALUOut, ZeroFlag); 
@@ -319,6 +321,8 @@ module MIPSDataPath(input rst, clk, PCWrite, IF_IDWrite, HazardSel, input[8:0]Co
     assign aluop = EXSignalWire[2:0];
     
     EX_MEM EXMEMreg(ALUOut, ZeroFlag, MUX4wire, MUX6Wire, WBSignalWire, MemSignalWire, clk, rst, ALUOutWire, zeroflag, WriteDataWire, MUX6WireOut, WBSignalWire2, MemSignalWire2);
+
+    assign MemReadNextStage = MemSignalWire[1];
 
     // Stage4
     // Stage4   
@@ -340,6 +344,7 @@ module MIPSDataPath(input rst, clk, PCWrite, IF_IDWrite, HazardSel, input[8:0]Co
     assign instruction = InstructionWireOut;
     assign RTReg = RtWire;
     assign RSReg = RsWire;
+    assign RDReg = RdWire;
     assign RDRegStage4 = MUX6WireOut;
     assign RDRegStage5 = MUX6WireOut2;
     assign WriteRegSignalStage4 = WBSignalWire2[0];
@@ -347,4 +352,3 @@ module MIPSDataPath(input rst, clk, PCWrite, IF_IDWrite, HazardSel, input[8:0]Co
 
 
 endmodule
-

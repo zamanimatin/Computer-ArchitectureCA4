@@ -1,0 +1,10 @@
+			add R1, R0, R0
+			addi R2, R0, 40
+			add R3, R0, R0
+			add R4, R0, R0
+LOOP		beq R1, R2, END_LOOP
+			lw R3, 1000(R1)
+			add R4, R4, R3
+			addi R1, R1, 4
+			j LOOP
+END_LOOP	sw R4, 2000(R0)
