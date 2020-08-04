@@ -12,10 +12,10 @@ endmodule
 module InstructionMemory(input rst, input [31:0]addressin, output reg [31:0]instruction);
     reg [31:0] instructionMemory [0:512];
     always @(negedge rst) begin
-        $readmemb("instructionb.mem", instructionMemory);
+        $readmemb("instructiona.mem", instructionMemory);
     end
     integer i = 0;
-    always @(posedge rst, addressin)begin
+    always @(negedge rst, addressin)begin
         instruction = 32'b00000000000000000000000000000000;
         if(rst)
             for( i = 0; i < 512; i = i + 1)begin
@@ -75,14 +75,17 @@ module RegFile (input [4:0]ReadReg1, ReadReg2, input [4:0]WriteReg, input [31:0]
         ReadData2 = REGFILE[ReadReg2];
     end
     integer i;
-    always @(posedge clk, posedge rst)begin
+    always @(negedge clk, posedge rst)begin
         if (rst) begin
             for(i = 0; i < 32; i = i + 1) begin
                 REGFILE[i] = 32'b0;
             end
         end
-        if (regWriteSignal)
+        if (regWriteSignal) begin
             REGFILE[WriteReg] = Writedata;
+            ReadData1 = REGFILE[ReadReg1];
+            ReadData2 = REGFILE[ReadReg2];
+        end
     end
 endmodule
 
@@ -138,7 +141,7 @@ endmodule
 module DataMemory (input [31:0]address, writedata, input MemRead, MemWrite, clk, rst, output reg [31:0]ReadData);
     reg [31:0] DMemory [0:512];
     always @(negedge rst) begin
-        $readmemb("DataMemory.mem", DMemory);
+        $readmemb("Memory1.mem", DMemory);
     end
     always @(address, MemRead) begin
         ReadData = 32'b00000000000000000000000000000000;
@@ -183,19 +186,16 @@ module IF_ID(input [31:0]AdderIn, InstructionIn, PCIn, input clk, rst, ldin, acl
             InstructionOut <= 32'b00000000000000000000000000000000;
             PCout <= 32'b00000000000000000000000000000000;
         end
+        else if (aclr) begin
+            AdderOut <= 32'b00000000000000000000000000000000;
+            InstructionOut <= 32'b00000000000000000000000000000000;
+            PCout <= 32'b00000000000000000000000000000000;
+        end
         else if (ldin) begin
             AdderOut <= AdderIn;
             InstructionOut <= InstructionIn;
             PCout <= PCIn;
         end
-    end
-    always @(posedge aclr) begin
-        if (aclr)begin
-            AdderOut <= 32'b00000000000000000000000000000000;
-            InstructionOut <= 32'b00000000000000000000000000000000;
-            PCout <= 32'b00000000000000000000000000000000;
-        end
-
     end
 endmodule 
 
@@ -223,12 +223,12 @@ module ID_EX(input [31:0]ReadData1In, ReadData2In,input  EorEbarIn, input [31:0]
             RsOut <= RsIn;
             ControlWBsignalOut <= ControlWBsignalIn;
             ControlMemSignalOut <= ControlMemSignalIn;
-            ControlEXSignalOut <= ControlEXSignalOut;
+            ControlEXSignalOut <= ControlEXSignalIn;
         end
     end
 endmodule
 
-module EX_MEM(input [31:0]ALUresultIn, input ZeroFlagIn, input [31:0]WriteDataIn, input [4:0]RegDstIn, input ControlWBsignalIn, input [1:0]ControlMemSignalIn, clk, rst, output reg [31:0] ALUresultOut, output reg ZeroFlagOut, output reg [31:0]WriteDataOut, output reg [4:0]RegDstOut, output reg ControlWBsignalOut, output reg [1:0]ControlMemSignalOut);
+module EX_MEM(input [31:0]ALUresultIn, input ZeroFlagIn, input [31:0]WriteDataIn, input [4:0]RegDstIn, input [1:0]ControlWBsignalIn, input [1:0]ControlMemSignalIn, input clk, rst, output reg [31:0] ALUresultOut, output reg ZeroFlagOut, output reg [31:0]WriteDataOut, output reg [4:0]RegDstOut, output reg [1:0]ControlWBsignalOut, output reg [1:0]ControlMemSignalOut);
     always @(posedge clk, posedge rst) begin
         if (rst) begin
             ALUresultOut <= 32'b00000000000000000000000000000000;
@@ -249,7 +249,7 @@ module EX_MEM(input [31:0]ALUresultIn, input ZeroFlagIn, input [31:0]WriteDataIn
     end
 endmodule
 
-module MEM_WB(input [31:0]ReadDataIn, ALUresultIn, input [4:0]RegDstIn, input ControlWBsignalIn, clk, rst, output reg ControlWBsignalOut, output reg [31:0]ReadDataOut, ALUresultOut, output reg [4:0]RegDstOut);
+module MEM_WB(input [31:0]ReadDataIn, ALUresultIn, input [4:0]RegDstIn, input [1:0]ControlWBsignalIn, input clk, rst, output reg [1:0]ControlWBsignalOut, output reg [31:0]ReadDataOut, ALUresultOut, output reg [4:0]RegDstOut);
     always @(posedge clk, posedge rst) begin
         if(rst) begin
             ControlWBsignalOut <= 1'b0;
@@ -273,14 +273,13 @@ module MIPSDataPath(input rst, clk, PCWrite, IF_IdWriteWire, HazardSel, aclr, in
     // revised DP
     wire [31:0]MUX1Wire, Container4, PCOutputWire, InstructionWireIn, PCAdderOut, JumpAdderOut, PCAdderOutToJumpAdder, InstructionWireOut,
     SHL2Wire, SEXTOutWire, MUX7Wire, ReadData1WireIn, ReadData2WireIn, ReadData1WireOut, ReadData2WireOut, SEXTOutWire2,
-    ALUOutWire, ALUOut, WriteDataWire, ReadDataWire, ReadDataOutWire, ALUOutWire2, PCif_idRegOut;
+    ALUOutWire, ALUOut, WriteDataWire, ReadDataWire, ReadDataOutWire, ALUOutWire2, PCif_idRegOut, MUX3wire, MUX4wire, MUX5Wire, AddressZeroExtended2;
     wire Cout1, Cout2, EorEbarIn, EorEbarOut, RegWriteSignal, ALUSrc, regdst, ZeroFlag, MemRead, MemWrite, MemtoReg;
-    wire [4:0]MUX6WireOut2, RtWire, RdWire, RsWire, EXSignalWire, MUX6Wire;
+    wire [4:0]MUX6WireOut, MUX6WireOut2, RtWire, RdWire, RsWire, EXSignalWire, MUX6Wire;
     wire [8:0]Container0, MUX2Wire;
     
     wire [1:0] WBSignalWire, WBSignalWire2, WBSignalWire3, MemSignalWire, MemSignalWire2;
     wire [2:0]aluop;
-    wire [5:0] MUX6WireOut;
     wire [27:0]AddressZeroExtended;
     
 
@@ -288,7 +287,7 @@ module MIPSDataPath(input rst, clk, PCWrite, IF_IdWriteWire, HazardSel, aclr, in
     assign Container4 = 32'b00000000000000000000000000000100; // 32bit 4 value
     // Stage1
     // Stage1
-    MUX32BitInput3 MUX1(PCAdderOut, JumpAdderOut, AddressZeroExtended, PCSrc, MUX1Wire);
+    MUX32BitInput3 MUX1(PCAdderOut, JumpAdderOut, AddressZeroExtended2, PCSrc, MUX1Wire);
     Register32BitWithLoad PC(MUX1Wire, rst, clk, PCWrite, PCOutputWire);
     InstructionMemory InstMem(rst, PCOutputWire, InstructionWireIn);
     Adder32bit Adder1(PCOutputWire, Container4, PCAdderOut, Cout1);
@@ -308,9 +307,10 @@ module MIPSDataPath(input rst, clk, PCWrite, IF_IdWriteWire, HazardSel, aclr, in
     ID_EX IDEXreg(ReadData1WireIn, ReadData2WireIn, EorEbarIn, SEXTOutWire, InstructionWireOut[20:16], InstructionWireOut[15:11], InstructionWireOut[25:21], MUX2Wire[1:0], MUX2Wire[8:7], MUX2Wire[6:2], rst, clk, ReadData1WireOut, ReadData2WireOut, EorEbarOut, SEXTOutWire2, RtWire, RdWire, RsWire, WBSignalWire, MemSignalWire, EXSignalWire);
 
     assign EorEbar = EorEbarIn;
+    assign AddressZeroExtended2 = {PCif_idRegOut[31:28], AddressZeroExtended};
+    // Stage3
+    // Stage3
 
-    // Stage3
-    // Stage3
     MUX32BitInput3 MUX3(ReadData1WireOut, ALUOutWire, MUX7Wire, ForwardingWire3, MUX3wire);
     MUX32BitInput3 MUX4(ReadData2WireOut, ALUOutWire, MUX7Wire, ForwardingWire4, MUX4wire);
     MUX32Bit MUX5(MUX4wire, SEXTOutWire2, ALUSrc, MUX5Wire);
@@ -328,7 +328,7 @@ module MIPSDataPath(input rst, clk, PCWrite, IF_IdWriteWire, HazardSel, aclr, in
     // Stage4   
     DataMemory MainDataMem(ALUOutWire, WriteDataWire, MemRead, MemWrite, clk, rst, ReadDataWire);
     assign MemRead = MemSignalWire2[1];
-    assign memWrite = MemSignalWire2[0];
+    assign MemWrite = MemSignalWire2[0];
     
     MEM_WB MEMWBreg(ReadDataWire, ALUOutWire, MUX6WireOut, WBSignalWire2, clk, rst, WBSignalWire3, ReadDataOutWire, ALUOutWire2, MUX6WireOut2);
 
@@ -344,7 +344,7 @@ module MIPSDataPath(input rst, clk, PCWrite, IF_IdWriteWire, HazardSel, aclr, in
     assign instruction = InstructionWireOut;
     assign RTReg = RtWire;
     assign RSReg = RsWire;
-    assign RDReg = RdWire;
+    assign RDReg = RtWire;
     assign RDRegStage4 = MUX6WireOut;
     assign RDRegStage5 = MUX6WireOut2;
     assign WriteRegSignalStage4 = WBSignalWire2[0];
