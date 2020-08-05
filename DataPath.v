@@ -12,7 +12,7 @@ endmodule
 module InstructionMemory(input rst, input [31:0]addressin, output reg [31:0]instruction);
     reg [31:0] instructionMemory [0:512];
     always @(negedge rst) begin
-        $readmemb("instructiona.mem", instructionMemory);
+        $readmemb("instructionb.mem", instructionMemory);
     end
     integer i = 0;
     always @(negedge rst, addressin)begin
@@ -141,7 +141,7 @@ endmodule
 module DataMemory (input [31:0]address, writedata, input MemRead, MemWrite, clk, rst, output reg [31:0]ReadData);
     reg [31:0] DMemory [0:512];
     always @(negedge rst) begin
-        $readmemb("Memory1.mem", DMemory);
+        $readmemb("Memory.mem", DMemory);
     end
     always @(address, MemRead) begin
         ReadData = 32'b00000000000000000000000000000000;
